@@ -2,15 +2,26 @@ using UnityEngine;
 
 public class PlayerControllerPrototype : MonoBehaviour
 {
+    [Header("Jump Settings")]
     public float jumpForce = 7f;
     public int maxJumpCount = 2;
+    public float maxHoldTime = 0.3f; // long press for higher jump
+
+    [Header("Coyote Time & Jump Buffer")]
+    public float coyoteTime = 0.1f;       // grace time after leaving ground
+    public float jumpBufferTime = 0.1f;   // grace time before landing
+
     private int currentJump = 0;
     private Rigidbody2D rb;
 
+    // Input handling
     private bool isHolding = false;
     private float holdStartTime;
-    public float maxHoldTime = 0.3f; // long press for higher jump
-    private bool jumpButtonReleased = true; // prevent spam jumping
+    private bool jumpButtonReleased = true;
+
+    // Timers for coyote time and jump buffer
+    private float coyoteTimer;
+    private float jumpBufferTimer;
 
     void Start()
     {
@@ -19,17 +30,15 @@ public class PlayerControllerPrototype : MonoBehaviour
 
     void Update()
     {
+        coyoteTimer -= Time.deltaTime;
+        jumpBufferTimer -= Time.deltaTime;
+
 #if UNITY_EDITOR
-        // Keyboard test: Space = jump
+        // --- Keyboard Testing ---
         if (Input.GetKeyDown(KeyCode.Space))
         {
-            if (jumpButtonReleased && currentJump < maxJumpCount)
-            {
-                StartJump();
-                isHolding = true;
-                holdStartTime = Time.time;
-                jumpButtonReleased = false;
-            }
+            jumpBufferTimer = jumpBufferTime; // store jump input
+            jumpButtonReleased = false;
         }
 
         if (Input.GetKeyUp(KeyCode.Space))
@@ -41,6 +50,15 @@ public class PlayerControllerPrototype : MonoBehaviour
 #endif
 
         HandleTouch();
+
+        // Check if we can jump (buffered + coyote support)
+        if (jumpBufferTimer > 0 && (currentJump < maxJumpCount || coyoteTimer > 0))
+        {
+            StartJump();
+            isHolding = true;
+            holdStartTime = Time.time;
+            jumpBufferTimer = 0; // consume buffered jump
+        }
     }
 
     void HandleTouch()
@@ -53,11 +71,9 @@ public class PlayerControllerPrototype : MonoBehaviour
             switch (t.phase)
             {
                 case TouchPhase.Began:
-                    if (isLeftSide && jumpButtonReleased && currentJump < maxJumpCount)
+                    if (isLeftSide)
                     {
-                        StartJump();
-                        isHolding = true;
-                        holdStartTime = Time.time;
+                        jumpBufferTimer = jumpBufferTime; // buffer touch
                         jumpButtonReleased = false;
                     }
                     break;
@@ -79,11 +95,11 @@ public class PlayerControllerPrototype : MonoBehaviour
         rb.velocity = new Vector2(rb.velocity.x, 0);
         rb.AddForce(Vector2.up * jumpForce, ForceMode2D.Impulse);
         currentJump++;
+        coyoteTimer = 0f; // reset coyote time after using it
     }
 
     void EndJump()
     {
-        // Short press = shorter jump
         if (rb.velocity.y > 0)
         {
             float heldTime = Time.time - holdStartTime;
@@ -95,6 +111,18 @@ public class PlayerControllerPrototype : MonoBehaviour
     private void OnCollisionEnter2D(Collision2D collision)
     {
         if (collision.gameObject.CompareTag("Ground"))
+        {
             currentJump = 0;
+            coyoteTimer = coyoteTime; // reset coyote window when touching ground
+        }
+    }
+
+    private void OnCollisionExit2D(Collision2D collision)
+    {
+        if (collision.gameObject.CompareTag("Ground"))
+        {
+            // Start coyote timer when leaving ground
+            coyoteTimer = coyoteTime;
+        }
     }
 }
