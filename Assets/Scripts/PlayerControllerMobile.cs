@@ -4,6 +4,15 @@ public class PlayerControllerPrototype : MonoBehaviour
 {
     public float jumpForce = 7f;
     public int maxJumpCount = 2;
+<<<<<<< Updated upstream
+=======
+    public float maxHoldTime = 0.3f; // long press for higher jump
+
+    [Header("Coyote Time & Jump Buffer")]
+    public float coyoteTime = 0.1f;      
+    public float jumpBufferTime = 0.1f;   
+
+>>>>>>> Stashed changes
     private int currentJump = 0;
     private Rigidbody2D rb;
 
